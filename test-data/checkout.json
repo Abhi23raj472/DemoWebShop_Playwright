@@ -1,0 +1,18 @@
+{
+  "address": {
+    "firstName": "Test",
+    "lastName": "User",
+    "country": "India",
+    "city": "Pune",
+    "address1": "1 Test Street",
+    "zip": "411001",
+    "phone": "9999999999"
+  },
+  "creditCard": {
+    "holder": "Test User",
+    "validNumber": "4111111111111111",
+    "invalidNumber": "1234567890123456",
+    "validCode": "123",
+    "invalidCode": "12"
+  }
+}

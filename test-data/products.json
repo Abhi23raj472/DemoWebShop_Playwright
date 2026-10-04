@@ -1,0 +1,34 @@
+{
+  "laptop": {
+    "slug": "141-inch-laptop",
+    "name": "14.1-inch Laptop",
+    "price": 1590
+  },
+  "smartphone": {
+    "slug": "smartphone",
+    "name": "Smartphone",
+    "price": 100
+  },
+  "book": {
+    "slug": "computing-and-internet",
+    "name": "Computing and Internet",
+    "price": 10
+  },
+  "configurableComputer": {
+    "slug": "build-your-own-computer",
+    "name": "Build your own computer"
+  },
+  "giftCard": {
+    "slug": "25-virtual-gift-card",
+    "name": "$25 Virtual Gift Card"
+  },
+  "categories": [
+    { "name": "Books", "path": "/books" },
+    { "name": "Computers", "path": "/computers" },
+    { "name": "Electronics", "path": "/electronics" },
+    { "name": "Apparel & Shoes", "path": "/apparel-shoes" },
+    { "name": "Digital downloads", "path": "/digital-downloads" },
+    { "name": "Jewelry", "path": "/jewelry" },
+    { "name": "Gift Cards", "path": "/gift-cards" }
+  ]
+}

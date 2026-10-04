@@ -13,7 +13,8 @@ pipeline {
   agent any
 
   parameters {
-    choice(name: 'BROWSER', choices: ['all', 'chromium', 'firefox', 'webkit'], description: 'Browser project to run')
+    // Chromium is the default: all three browsers (726 tests) take over an hour on a laptop agent.
+    choice(name: 'BROWSER', choices: ['chromium', 'all', 'firefox', 'webkit'], description: 'Browser project to run')
   }
 
   triggers {
@@ -23,7 +24,7 @@ pipeline {
   }
 
   options {
-    timeout(time: 60, unit: 'MINUTES')
+    timeout(time: 150, unit: 'MINUTES')
     buildDiscarder(logRotator(numToKeepStr: '20'))
     disableConcurrentBuilds()
   }
