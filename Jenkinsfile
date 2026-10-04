@@ -1,7 +1,7 @@
 // Jenkins pipeline for the Demo Web Shop Playwright tests.
-// Works on Windows and Linux agents (commands go through run()).
+// Works on Windows and Linux agents (commands go through runCmd()).
 
-def run(String cmd) {
+def runCmd(String cmd) {
   if (isUnix()) {
     sh cmd
   } else {
@@ -44,22 +44,22 @@ pipeline {
 
     stage('Install') {
       steps {
-        run 'node --version'
-        run 'npm ci'
+        runCmd('node --version')
+        runCmd('npm ci')
         // Chromium is always needed: the "setup" project registers the test account with it.
-        run "npx playwright install chromium ${params.BROWSER == 'all' ? 'firefox webkit' : params.BROWSER}"
+        runCmd("npx playwright install chromium ${params.BROWSER == 'all' ? 'firefox webkit' : params.BROWSER}")
       }
     }
 
     stage('Type check') {
       steps {
-        run 'npm run typecheck'
+        runCmd('npm run typecheck')
       }
     }
 
     stage('Test') {
       steps {
-        run "npx playwright test ${params.BROWSER == 'all' ? '' : '--project=' + params.BROWSER}"
+        runCmd("npx playwright test ${params.BROWSER == 'all' ? '' : '--project=' + params.BROWSER}")
       }
     }
   }
