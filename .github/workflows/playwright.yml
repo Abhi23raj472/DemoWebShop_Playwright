@@ -72,17 +72,12 @@ jobs:
           retention-days: 7
 
   report:
-    name: Merge report & email
+    name: Merge report
     # Run after all browser jobs, whether they passed or failed.
     needs: test
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      # Only a true/false flag here; the secrets themselves are passed to the send step alone,
-      # so other steps (npm ci, merge-reports) never see the mail password.
-      # Secrets are not available to pull requests from forks, so the email step is skipped there.
-      MAIL_CONFIGURED: ${{ secrets.MAIL_USERNAME != '' && secrets.MAIL_PASSWORD != '' && secrets.MAIL_TO != '' }}
 
     steps:
       - name: Check out code
@@ -105,15 +100,13 @@ jobs:
           path: all-blob-reports
           merge-multiple: true
 
-      - name: Merge into one HTML + JSON report
+      - name: Merge into one HTML report
         run: |
           if ls all-blob-reports/*.zip >/dev/null 2>&1; then
-            npx playwright merge-reports --reporter html,json ./all-blob-reports
+            npx playwright merge-reports --reporter html ./all-blob-reports
           else
             echo "No blob reports found."
           fi
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
 
       - name: Upload merged HTML report
         if: ${{ hashFiles('playwright-report/index.html') != '' }}
@@ -122,36 +115,3 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-
-      # Gmail rejects attachments over 25 MB; larger reports are only linked.
-      - name: Zip report for email
-        id: zip
-        run: |
-          if [ -f playwright-report/index.html ]; then
-            (cd playwright-report && zip -qr ../playwright-report.zip .)
-            size=$(stat -c %s playwright-report.zip)
-            echo "Report zip: $size bytes"
-            if [ "$size" -lt 20000000 ]; then
-              echo "attachments=playwright-report.zip" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-
-      - name: Build email summary
-        id: summary
-        run: node .github/scripts/email-summary.js results.json email.html
-
-      - name: Send email
-        if: ${{ env.MAIL_CONFIGURED == 'true' }}
-        # Pinned to a commit (v22) because this third-party action receives the mail password.
-        uses: dawidd6/action-send-mail@67ce3558d613188179559c61d3565140cf389968
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          from: Playwright CI <${{ secrets.MAIL_USERNAME }}>
-          to: ${{ secrets.MAIL_TO }}
-          subject: ${{ steps.summary.outputs.subject }}
-          html_body: file://email.html
-          attachments: ${{ steps.zip.outputs.attachments }}

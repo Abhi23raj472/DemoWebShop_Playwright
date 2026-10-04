@@ -13,8 +13,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   timeout: 90_000,
   expect: { timeout: 15_000 },
-  // On CI: each browser job writes a blob report (merged into one HTML report and emailed by the
-  // "report" job), and the "github" reporter adds failure annotations to the run summary.
+  // On CI: each browser job writes a blob report (merged into one HTML report by the "report" job),
+  // and the "github" reporter adds failure annotations to the run summary.
   reporter: process.env.CI
     ? [['blob', { fileName: `report-${process.env.BLOB_NAME ?? 'ci'}.zip` }], ['github'], ['list']]
     : [['html', { open: 'never' }], ['list']],
