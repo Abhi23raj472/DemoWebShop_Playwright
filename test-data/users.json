@@ -1,0 +1,9 @@
+{
+  "invalidEmailFormat": "invalid-email-format",
+  "wrongPassword": "WrongPass@123",
+  "newUser": {
+    "firstName": "Test",
+    "lastName": "User",
+    "password": "Test@12345"
+  }
+}

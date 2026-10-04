@@ -1,0 +1,13 @@
+node_modules/
+
+# Test output: reports, traces and videos contain typed values, including passwords
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+.auth/
