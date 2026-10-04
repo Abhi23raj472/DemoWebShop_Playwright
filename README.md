@@ -134,12 +134,35 @@ The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.
 - On every **push** and **pull request** to `main`
 - **Manually** from the Actions tab → *Playwright Tests* → *Run workflow*
 
-Chromium, Firefox and WebKit run as three parallel jobs. Each job type-checks the code, runs the tests, and uploads:
+Chromium, Firefox and WebKit run as three parallel jobs. Each job type-checks the code and runs the tests. A final **Merge report & email** job then combines the three results into one report and emails it.
 
-- `playwright-report-<browser>` – the HTML report (every run)
-- `test-results-<browser>` – screenshots, traces and videos (failed runs only)
+Artifacts on each run's summary page (kept for 7 days):
 
-Artifacts are kept for 7 days. Download them from the run's summary page, unzip, and open `index.html`, or view a trace with `npx playwright show-trace trace.zip`.
+- `playwright-report` – the merged HTML report for all browsers (unzip and open `index.html`)
+- `test-results-<browser>` – screenshots, traces and videos (failed runs only; view a trace with `npx playwright show-trace trace.zip`)
+
+### Email report
+
+After **every** run (passed or failed), an email is sent with:
+
+- Pass/fail status, trigger and date in the subject
+- A per-browser table of passed / failed / flaky / skipped tests, and the names of any failed or flaky tests
+- A link to the workflow run
+- The full HTML report attached as `playwright-report.zip` (only linked if it is over 20 MB)
+
+Setup (one time):
+
+1. Turn on [2-Step Verification](https://myaccount.google.com/signinoptions/two-step-verification) for the Gmail account that will send the email.
+2. Create an [App Password](https://myaccount.google.com/apppasswords) for it (a 16-character code). Don't use your normal Gmail password.
+3. In the repository, go to **Settings → Secrets and variables → Actions → New repository secret** and add:
+
+| Secret | Value |
+|---|---|
+| `MAIL_USERNAME` | The sending Gmail address |
+| `MAIL_PASSWORD` | The App Password from step 2 |
+| `MAIL_TO` | Where to send reports (comma-separate several addresses) |
+
+If these secrets are missing (or for pull requests from forks), the email step is skipped and the rest of the run is unaffected. The mail password is only passed to the send step, and that third-party action is pinned to a specific commit.
 
 ## Adding a new test
 
@@ -158,7 +181,7 @@ test('TC_XXX_01: description @smoke', async ({ homePage }) => {
 
 ## Security
 
-- **No real credentials in this repo or in CI.** CI always uses a freshly registered throwaway account, and no credential secrets are passed to the workflow.
+- **No real credentials in this repo or in CI.** CI always uses a freshly registered throwaway account, and no site credentials are passed to the workflow. The only secrets are the email settings, which reach the email step alone.
 - Playwright traces and reports record typed values (including passwords) and form posts in plain text, and uploaded artifacts are **not** masked by GitHub. That is why personal accounts should never be used, locally or on CI.
 - `.env`, `.auth/`, `test-results/` and `playwright-report/` are git-ignored.
 - The workflow runs with read-only repository permissions (`contents: read`).

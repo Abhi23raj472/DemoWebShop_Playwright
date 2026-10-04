@@ -13,9 +13,10 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   timeout: 90_000,
   expect: { timeout: 15_000 },
-  // On CI, the "github" reporter adds failure annotations to the workflow run summary.
+  // On CI: each browser job writes a blob report (merged into one HTML report and emailed by the
+  // "report" job), and the "github" reporter adds failure annotations to the run summary.
   reporter: process.env.CI
-    ? [['github'], ['html', { open: 'never' }], ['list']]
+    ? [['blob', { fileName: `report-${process.env.BLOB_NAME ?? 'ci'}.zip` }], ['github'], ['list']]
     : [['html', { open: 'never' }], ['list']],
   use: {
     baseURL: process.env.BASE_URL || 'https://demowebshop.tricentis.com',

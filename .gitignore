@@ -4,6 +4,9 @@ node_modules/
 test-results/
 playwright-report/
 blob-report/
+all-blob-reports/
+results.json
+email.html
 playwright/.cache/
 
 # Local secrets
