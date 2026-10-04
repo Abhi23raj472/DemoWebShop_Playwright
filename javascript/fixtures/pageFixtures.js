@@ -18,6 +18,7 @@ const { PasswordRecoveryPage } = require('../pages/PasswordRecoveryPage');
 const { ProductReviewPage } = require('../pages/ProductReviewPage');
 const { EmailAFriendPage } = require('../pages/EmailAFriendPage');
 const { uniqueEmail } = require('../utils/helpers');
+const { withSteps } = require('../utils/steps');
 const users = require('../../test-data/users.json');
 
 // Written by setup/account.setup.ts, which runs once before the browser projects.
@@ -55,21 +56,21 @@ const ACCOUNT_FILE = path.join(__dirname, '..', '..', '.auth', 'account.json');
 
 const test = base.test.extend(
   /** @type {import('@playwright/test').Fixtures<TestFixtures, WorkerFixtures, import('@playwright/test').PlaywrightTestArgs & import('@playwright/test').PlaywrightTestOptions, import('@playwright/test').PlaywrightWorkerArgs & import('@playwright/test').PlaywrightWorkerOptions>} */ ({
-    homePage: async ({ page }, use) => use(new HomePage(page)),
-    loginPage: async ({ page }, use) => use(new LoginPage(page)),
-    registerPage: async ({ page }, use) => use(new RegisterPage(page)),
-    searchPage: async ({ page }, use) => use(new SearchPage(page)),
-    categoryPage: async ({ page }, use) => use(new CategoryPage(page)),
-    productPage: async ({ page }, use) => use(new ProductPage(page)),
-    cartPage: async ({ page }, use) => use(new CartPage(page)),
-    checkoutPage: async ({ page }, use) => use(new CheckoutPage(page)),
-    wishlistPage: async ({ page }, use) => use(new WishlistPage(page)),
-    comparePage: async ({ page }, use) => use(new ComparePage(page)),
-    accountPage: async ({ page }, use) => use(new AccountPage(page)),
-    contactUsPage: async ({ page }, use) => use(new ContactUsPage(page)),
-    passwordRecoveryPage: async ({ page }, use) => use(new PasswordRecoveryPage(page)),
-    productReviewPage: async ({ page }, use) => use(new ProductReviewPage(page)),
-    emailAFriendPage: async ({ page }, use) => use(new EmailAFriendPage(page)),
+    homePage: async ({ page }, use, testInfo) => use(withSteps(new HomePage(page), page, testInfo)),
+    loginPage: async ({ page }, use, testInfo) => use(withSteps(new LoginPage(page), page, testInfo)),
+    registerPage: async ({ page }, use, testInfo) => use(withSteps(new RegisterPage(page), page, testInfo)),
+    searchPage: async ({ page }, use, testInfo) => use(withSteps(new SearchPage(page), page, testInfo)),
+    categoryPage: async ({ page }, use, testInfo) => use(withSteps(new CategoryPage(page), page, testInfo)),
+    productPage: async ({ page }, use, testInfo) => use(withSteps(new ProductPage(page), page, testInfo)),
+    cartPage: async ({ page }, use, testInfo) => use(withSteps(new CartPage(page), page, testInfo)),
+    checkoutPage: async ({ page }, use, testInfo) => use(withSteps(new CheckoutPage(page), page, testInfo)),
+    wishlistPage: async ({ page }, use, testInfo) => use(withSteps(new WishlistPage(page), page, testInfo)),
+    comparePage: async ({ page }, use, testInfo) => use(withSteps(new ComparePage(page), page, testInfo)),
+    accountPage: async ({ page }, use, testInfo) => use(withSteps(new AccountPage(page), page, testInfo)),
+    contactUsPage: async ({ page }, use, testInfo) => use(withSteps(new ContactUsPage(page), page, testInfo)),
+    passwordRecoveryPage: async ({ page }, use, testInfo) => use(withSteps(new PasswordRecoveryPage(page), page, testInfo)),
+    productReviewPage: async ({ page }, use, testInfo) => use(withSteps(new ProductReviewPage(page), page, testInfo)),
+    emailAFriendPage: async ({ page }, use, testInfo) => use(withSteps(new EmailAFriendPage(page), page, testInfo)),
 
     freshUser: async ({ registerPage }, use) => {
       const user = { ...users.newUser, email: uniqueEmail('fresh') };

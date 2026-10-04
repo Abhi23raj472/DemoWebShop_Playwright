@@ -1,11 +1,31 @@
-import { defineConfig, devices } from '@playwright/test';
+import os from 'os';
+import { defineConfig, devices, ReporterDescription } from '@playwright/test';
 import dotenv from 'dotenv';
+import { screenshotMode } from './typescript/utils/steps';
 
 dotenv.config();
+
+const baseURL = process.env.BASE_URL || 'https://demowebshop.tricentis.com';
+
+// Allure: results go to allure-results/ (cleared before each run by setup/global-setup.ts) and are turned
+// into a report with `npm run report:allure`. Every step and its screenshot appear in the report.
+const allure: ReporterDescription = [
+  'allure-playwright',
+  {
+    resultsDir: 'allure-results',
+    environmentInfo: {
+      'Base URL': baseURL,
+      'Screenshot mode': screenshotMode(),
+      OS: `${os.type()} ${os.release()}`,
+      Node: process.version,
+    },
+  },
+];
 
 export default defineConfig({
   testDir: '.',
   testMatch: ['typescript/tests/**/*.spec.ts', 'javascript/tests/**/*.spec.js'],
+  globalSetup: './setup/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -14,19 +34,21 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   reporter: process.env.JENKINS_URL
-    ? // Jenkins: HTML report (HTML Publisher plugin) and JUnit XML (test trend charts).
-      [['html', { open: 'never' }], ['junit', { outputFile: 'reports/junit.xml' }], ['list']]
+    ? // Jenkins: HTML report (HTML Publisher plugin), JUnit XML (test trend charts) and Allure.
+      [['html', { open: 'never' }], ['junit', { outputFile: 'reports/junit.xml' }], allure, ['list']]
     : process.env.GITHUB_ACTIONS
-      ? // GitHub Actions: each browser job writes a blob report (merged into one HTML report by the
-        // "report" job), and the "github" reporter adds failure annotations to the run summary.
-        [['blob', { fileName: `report-${process.env.BLOB_NAME ?? 'ci'}.zip` }], ['github'], ['list']]
-      : [['html', { open: 'never' }], ['list']],
+      ? // GitHub Actions: each browser job writes a blob report and Allure results (merged into one report
+        // each by the "report" job), and the "github" reporter adds failure annotations to the run summary.
+        [['blob', { fileName: `report-${process.env.BLOB_NAME ?? 'ci'}.zip` }], allure, ['github'], ['list']]
+      : [['html', { open: 'never' }], allure, ['list']],
   use: {
-    baseURL: process.env.BASE_URL || 'https://demowebshop.tricentis.com',
+    baseURL,
     // Clicks that submit a form wait for the server to respond, which can take a while on this site.
     actionTimeout: 45_000,
     navigationTimeout: 60_000,
     trace: 'on-first-retry',
+    // Step screenshots come from typescript/utils/steps.ts (SCREENSHOTS=step); this adds the final page of
+    // any failed test, in both modes.
     screenshot: 'only-on-failure',
     // Recording every test is CPU-heavy; record only the retry of a failed test.
     video: 'on-first-retry',

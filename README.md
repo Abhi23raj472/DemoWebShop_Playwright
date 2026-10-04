@@ -250,7 +250,8 @@ To use your own **dedicated test account** locally instead, copy `.env.example` 
 | `npm run test:smoke` | Only tests tagged `@smoke` |
 | `npm run test:headed` | Run with a visible browser |
 | `npm run typecheck` | Type-check TypeScript and JavaScript |
-| `npm run report` | Open the last HTML report |
+| `npm run report` | Open the last Playwright HTML report |
+| `npm run report:allure` | Build and open the Allure report from the last run |
 
 Useful variations:
 
@@ -270,10 +271,41 @@ Key settings in [playwright.config.ts](playwright.config.ts):
 | Workers | 2 (Firefox: 1) | 1 per job | The demo site is slow; too many parallel browsers cause timeouts |
 | Retries | 1 | 2 | Absorb occasional slowness of the public demo site |
 | Test timeout | 90 s | 90 s | |
-| Screenshot | on failure | on failure | |
+| Screenshots | on failure (`SCREENSHOTS=failure`) | every step (`SCREENSHOTS=step`) | See [Reports](#reports) |
 | Trace / video | on first retry | on first retry | |
 
-`BASE_URL` can be overridden through the environment or `.env`.
+`BASE_URL` and `SCREENSHOTS` can be overridden through the environment or `.env`.
+
+## Reports
+
+Every run produces two reports. Both show each test's steps with their screenshots.
+
+| Report | Best for | Open locally |
+|---|---|---|
+| **Playwright HTML** | Debugging a single test: steps, screenshots, errors, traces and videos | `npm run report` |
+| **Allure** | An overview: pass rate, tests grouped by browser → spec file → positive/negative, history and trends across runs | `npm run report:allure` |
+
+### Steps and screenshots
+
+Every page-object action is recorded as a named step, e.g. *Product page → add to cart* or *Checkout page → fill billing address* (see [typescript/utils/steps.ts](typescript/utils/steps.ts)). Checkout tests also group their steps into stages such as *Add product to cart* and *Confirm order*.
+
+The `SCREENSHOTS` setting controls when screenshots are taken:
+
+| Value | Screenshots | Default for |
+|---|---|---|
+| `step` | After every step, once the page has settled | CI, Jenkins and scheduled runs |
+| `failure` | Only when a test fails | Local runs (faster) |
+
+Whatever the mode, a failing step gets a **FAILED: …** screenshot at the exact point it failed, and a failed test also keeps its trace and a video of its retry.
+
+To take step screenshots locally, add `SCREENSHOTS=step` to `.env`, or for one run in PowerShell:
+
+```powershell
+$env:SCREENSHOTS = "step"; npx playwright test --project=chromium; Remove-Item Env:SCREENSHOTS
+npm run report:allure
+```
+
+Step titles never include the values typed (such as passwords), but screenshots, traces and the reports themselves can show them, so only test accounts are ever used.
 
 ## CI/CD
 
@@ -283,11 +315,12 @@ The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.
 - On every **push** and **pull request** to `main`
 - **Manually** from the Actions tab → *Playwright Tests* → *Run workflow*
 
-Chromium, Firefox and WebKit run as three parallel jobs. Each job type-checks the code and runs the tests. A final **Merge report** job then combines the three results into one HTML report.
+Chromium, Firefox and WebKit run as three parallel jobs, with screenshots at every step. Each job type-checks the code and runs the tests. A final **Merge reports** job then combines the three browsers into one Playwright HTML report and one Allure report.
 
 Artifacts on each run's summary page (kept for 7 days):
 
-- `playwright-report` – the merged HTML report for all browsers (unzip and open `index.html`)
+- `playwright-report` – the merged Playwright HTML report for all browsers (unzip and open `index.html`)
+- `allure-report` – the merged Allure report (unzip, then run `npx allure open <folder>`; it needs a local web server)
 - `test-results-<browser>` – screenshots, traces and videos (failed runs only; view a trace with `npx playwright show-trace trace.zip`)
 
 ## Jenkins
@@ -296,7 +329,8 @@ The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or
 
 - **Schedule:** daily at 07:00, 12:00 and 16:00 IST (`TZ=Asia/Kolkata`; only while the Jenkins machine is on), plus **Build with Parameters** to run on demand
 - **Parameter `BROWSER`:** `chromium` (default), `all`, `firefox` or `webkit`. All three browsers run 726 tests, which takes over an hour on a laptop agent
-- **Reports on each build:** *Playwright Report* (HTML), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
+- **Parameter `SCREENSHOTS`:** `step` (default, also used by scheduled builds) or `failure`
+- **Reports on each build:** *Playwright Report* (HTML), *Allure Report* (a single self-contained file, with trends kept in the workspace's `allure-history.jsonl`), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
 
 ### Requirements
 
