@@ -13,11 +13,14 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   timeout: 90_000,
   expect: { timeout: 15_000 },
-  // On CI: each browser job writes a blob report (merged into one HTML report by the "report" job),
-  // and the "github" reporter adds failure annotations to the run summary.
-  reporter: process.env.CI
-    ? [['blob', { fileName: `report-${process.env.BLOB_NAME ?? 'ci'}.zip` }], ['github'], ['list']]
-    : [['html', { open: 'never' }], ['list']],
+  reporter: process.env.JENKINS_URL
+    ? // Jenkins: HTML report (HTML Publisher plugin) and JUnit XML (test trend charts).
+      [['html', { open: 'never' }], ['junit', { outputFile: 'reports/junit.xml' }], ['list']]
+    : process.env.GITHUB_ACTIONS
+      ? // GitHub Actions: each browser job writes a blob report (merged into one HTML report by the
+        // "report" job), and the "github" reporter adds failure annotations to the run summary.
+        [['blob', { fileName: `report-${process.env.BLOB_NAME ?? 'ci'}.zip` }], ['github'], ['list']]
+      : [['html', { open: 'never' }], ['list']],
   use: {
     baseURL: process.env.BASE_URL || 'https://demowebshop.tricentis.com',
     // Clicks that submit a form wait for the server to respond, which can take a while on this site.

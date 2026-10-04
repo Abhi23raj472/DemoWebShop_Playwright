@@ -141,6 +141,34 @@ Artifacts on each run's summary page (kept for 7 days):
 - `playwright-report` – the merged HTML report for all browsers (unzip and open `index.html`)
 - `test-results-<browser>` – screenshots, traces and videos (failed runs only; view a trace with `npx playwright show-trace trace.zip`)
 
+## Jenkins
+
+The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or Linux agents): checkout → `npm ci` + browser install → type check → tests → reports. It runs alongside GitHub Actions.
+
+- **Schedule:** daily around 10:00 (Jenkins server time), plus **Build with Parameters** to run on demand
+- **Parameter `BROWSER`:** `all` (default), `chromium`, `firefox` or `webkit`
+- **Reports on each build:** *Playwright Report* (HTML), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
+
+### Requirements
+
+- Jenkins 2.4xx+ on Java 17 or 21, and Node.js 18+ on the agent
+- Plugins: **Pipeline**, **Git**, **JUnit** (all in "Install suggested plugins") and **HTML Publisher**
+- To display the Playwright report inside Jenkins, start Jenkins with a Content-Security-Policy that allows the report's scripts, for example:
+
+  ```
+  -Dhudson.model.DirectoryBrowserSupport.CSP="sandbox allow-scripts; default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' data: blob:; font-src 'self' data:"
+  ```
+
+  Only relax the CSP on a Jenkins that untrusted users can't reach.
+
+### Create the job
+
+1. **New Item** → name `DemoWebShop-Playwright` → **Pipeline** → OK
+2. **Pipeline** section → Definition: **Pipeline script from SCM** → SCM: **Git**
+   - Repository URL: `https://github.com/Abhi23raj472/DemoWebShop_Playwright.git` (public, no credentials needed)
+   - Branch: `*/main` · Script Path: `Jenkinsfile`
+3. **Save** → **Build Now**. The first build registers the `BROWSER` parameter and the daily schedule; after that, use **Build with Parameters**.
+
 ## Adding a new test
 
 1. Create a page object in `typescript/pages/` (and `javascript/pages/`) extending `BasePage`.
