@@ -18,9 +18,10 @@ pipeline {
   }
 
   triggers {
-    // Daily around 10:00 in the Jenkins server's time zone (H spreads the exact minute).
+    // Daily at 07:00, 12:00 and 16:00 India time (TZ makes this independent of the server's time zone).
     // A Jenkins on a laptop only runs schedules while the machine is on.
-    cron('H 10 * * *')
+    cron('''TZ=Asia/Kolkata
+0 7,12,16 * * *''')
   }
 
   options {

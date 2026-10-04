@@ -279,7 +279,7 @@ Key settings in [playwright.config.ts](playwright.config.ts):
 
 The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs:
 
-- **Daily at 02:00 IST** (`30 20 * * *` UTC)
+- **Daily at 07:00, 12:00 and 16:00 IST** (`30 1,6,10 * * *` in UTC)
 - On every **push** and **pull request** to `main`
 - **Manually** from the Actions tab → *Playwright Tests* → *Run workflow*
 
@@ -294,7 +294,7 @@ Artifacts on each run's summary page (kept for 7 days):
 
 The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or Linux agents): checkout → `npm ci` + browser install → type check → tests → reports. It runs alongside GitHub Actions.
 
-- **Schedule:** daily around 10:00 (Jenkins server time), plus **Build with Parameters** to run on demand
+- **Schedule:** daily at 07:00, 12:00 and 16:00 IST (`TZ=Asia/Kolkata`; only while the Jenkins machine is on), plus **Build with Parameters** to run on demand
 - **Parameter `BROWSER`:** `chromium` (default), `all`, `firefox` or `webkit`. All three browsers run 726 tests, which takes over an hour on a laptop agent
 - **Reports on each build:** *Playwright Report* (HTML), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
 
