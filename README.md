@@ -11,14 +11,16 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 - [Playwright Test](https://playwright.dev) – test runner, browsers, assertions, reports
 - TypeScript (strict) and JavaScript (type-checked via JSDoc + `// @ts-check`)
 - Page Object Model with custom Playwright fixtures
-- GitHub Actions – CI on push / pull request and a daily scheduled run
+- GitHub Actions – CI on push / pull request
+- Jenkins – daily scheduled runs (smoke in the morning, regression after lunch) with a result email
 - Browsers: Chromium, Firefox, WebKit
 
 ## Project structure
 
 ```
-├── .github/workflows/playwright.yml   # GitHub Actions pipeline (push, PR, daily schedule, manual run)
-├── Jenkinsfile                        # Jenkins pipeline
+├── .github/workflows/playwright.yml   # GitHub Actions pipeline (push, PR, manual run)
+├── Jenkinsfile                        # Jenkins pipeline (daily schedule, result email)
+├── scripts/build-email.mjs            # Builds the Jenkins result email from reports/junit.xml
 ├── setup/
 │   └── account.setup.ts               # Runs first: registers one shared test account
 ├── typescript/
@@ -309,9 +311,8 @@ Step titles never include the values typed (such as passwords), but screenshots,
 
 ## CI/CD
 
-The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs:
+The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs (scheduled runs are in [Jenkins](#jenkins)):
 
-- **Daily at 07:00, 12:00 and 16:00 IST** (`30 1,6,10 * * *` in UTC)
 - On every **push** and **pull request** to `main`
 - **Manually** from the Actions tab → *Playwright Tests* → *Run workflow*
 
@@ -327,15 +328,24 @@ Artifacts on each run's summary page (kept for 7 days):
 
 The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or Linux agents): checkout → `npm ci` + browser install → type check → tests → reports. It runs alongside GitHub Actions.
 
-- **Schedule:** daily at 07:00, 12:00 and 16:00 IST (`TZ=Asia/Kolkata`; only while the Jenkins machine is on), plus **Build with Parameters** to run on demand
+- **Schedule** (India time, `TZ=Asia/Kolkata`; only while the Jenkins machine is on):
+
+  | Time | `SUITE` | Runs |
+  |---|---|---|
+  | 07:00 daily | `smoke` | Tests tagged `@smoke` (`--grep @smoke`) |
+  | 13:00 daily | `regression` | Every other test (`--grep-invert @smoke`) |
+
+  Together the two runs cover the whole suite every day. **Build with Parameters** runs on demand.
+- **Parameter `SUITE`:** `all` (default for manual builds), `smoke` or `regression`
 - **Parameter `BROWSER`:** `chromium` (default), `all`, `firefox` or `webkit`. All three browsers run 726 tests, which takes over an hour on a laptop agent
 - **Parameter `SCREENSHOTS`:** `step` (default, also used by scheduled builds) or `failure`
 - **Reports on each build:** *Playwright Report* (HTML), *Allure Report* (a single self-contained file, with trends kept in the workspace's `allure-history.jsonl`), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
+- **Result email** after every build: pass/fail totals, the failed tests with their errors, and links to the reports. The Allure report is attached when it is under 18 MB (usually smoke runs); larger reports are linked instead
 
 ### Requirements
 
 - Jenkins 2.4xx+ on Java 17 or 21, and Node.js 18+ on the agent
-- Plugins: **Pipeline**, **Git**, **JUnit** (all in "Install suggested plugins") and **HTML Publisher**
+- Plugins: **Pipeline**, **Git**, **JUnit** (all in "Install suggested plugins"), **HTML Publisher**, **Email Extension** and **Parameterized Scheduler**
 - To display the Playwright report inside Jenkins, start Jenkins with a Content-Security-Policy that allows the report's scripts, for example:
 
   ```
@@ -350,7 +360,17 @@ The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or
 2. **Pipeline** section → Definition: **Pipeline script from SCM** → SCM: **Git**
    - Repository URL: `https://github.com/Abhi23raj472/DemoWebShop_Playwright.git` (public, no credentials needed)
    - Branch: `*/main` · Script Path: `Jenkinsfile`
-3. **Save** → **Build Now**. The first build registers the `BROWSER` parameter and the daily schedule; after that, use **Build with Parameters**.
+3. **Save** → **Build Now**. The first build registers the parameters and the daily schedule; after that, use **Build with Parameters**.
+
+### Result email
+
+The recipient and the mail account live in Jenkins, not in this repository:
+
+1. **Manage Jenkins → System → Global properties → Environment variables:** add `REPORT_EMAIL` = your address (several addresses: separate them with commas). If it is not set, no email is sent.
+2. **Manage Jenkins → System → Extended E-mail Notification:** SMTP server `smtp.gmail.com`, port `465`, **Use SSL**, credentials = a *Username with password* credential holding the Gmail address and a Gmail **App Password** (Google Account → Security → 2-Step Verification → App passwords). Your normal Gmail password does not work here.
+3. **Manage Jenkins → System → Jenkins Location → System Admin e-mail address:** the same Gmail address (the sender).
+
+A mail problem is logged in the console ("Result email not sent: …") but never fails the build.
 
 ## Adding a new test
 

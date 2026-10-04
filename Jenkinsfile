@@ -13,16 +13,20 @@ pipeline {
   agent any
 
   parameters {
+    // smoke: tests tagged @smoke; regression: every other test; all: both (the full suite).
+    choice(name: 'SUITE', choices: ['all', 'smoke', 'regression'], description: 'Tests to run: all, smoke (@smoke only) or regression (everything except @smoke)')
     // Chromium is the default: all three browsers (726 tests) take over an hour on a laptop agent.
     choice(name: 'BROWSER', choices: ['chromium', 'all', 'firefox', 'webkit'], description: 'Browser project to run')
     choice(name: 'SCREENSHOTS', choices: ['step', 'failure'], description: 'step: screenshot after every step; failure: only when a test fails (faster)')
   }
 
   triggers {
-    // Daily at 07:00, 12:00 and 16:00 India time (TZ makes this independent of the server's time zone).
+    // India time (TZ makes this independent of the server's time zone), via the Parameterized Scheduler
+    // plugin: 07:00 runs the smoke tests, 13:00 runs the rest, so the full suite runs every day.
     // A Jenkins on a laptop only runs schedules while the machine is on.
-    cron('''TZ=Asia/Kolkata
-0 7,12,16 * * *''')
+    parameterizedCron('''TZ=Asia/Kolkata
+0 7 * * * %SUITE=smoke
+0 13 * * * %SUITE=regression''')
   }
 
   options {
@@ -38,6 +42,7 @@ pipeline {
     PLAYWRIGHT_BROWSERS_PATH = "${env.JENKINS_HOME}/tools/ms-playwright"
     // Screenshot mode (typescript/utils/steps.ts); scheduled builds use the default, "step".
     SCREENSHOTS = "${params.SCREENSHOTS ?: 'step'}"
+    SUITE = "${params.SUITE ?: 'all'}"
   }
 
   stages {
@@ -64,7 +69,11 @@ pipeline {
 
     stage('Test') {
       steps {
-        runCmd("npx playwright test ${params.BROWSER == 'all' ? '' : '--project=' + params.BROWSER}")
+        script {
+          def project = params.BROWSER == 'all' ? '' : "--project=${params.BROWSER}"
+          def filter = [smoke: '--grep @smoke', regression: '--grep-invert @smoke'][env.SUITE] ?: ''
+          runCmd("npx playwright test ${project} ${filter}")
+        }
       }
     }
   }
@@ -99,6 +108,27 @@ pipeline {
         alwaysLinkToLastBuild: true,
         allowMissing: true,
       ])
+      // Result email (Email Extension plugin). The address comes from the REPORT_EMAIL environment
+      // variable set in Manage Jenkins > System, so it is not stored in this public repository.
+      // Sending goes through the SMTP account set up there; a mail problem never fails the build.
+      script {
+        try {
+          if (env.REPORT_EMAIL?.trim()) {
+            runCmd('node scripts/build-email.mjs')
+            emailext(
+              to: env.REPORT_EMAIL,
+              subject: readFile('reports/email-subject.txt').trim(),
+              body: readFile('reports/email.html'),
+              mimeType: 'text/html',
+              attachmentsPattern: 'reports/allure-report.html',
+            )
+          } else {
+            echo 'REPORT_EMAIL is not set in Jenkins, so no result email was sent.'
+          }
+        } catch (err) {
+          echo "Result email not sent: ${err}"
+        }
+      }
     }
     failure {
       // Screenshots, traces and videos of failed tests.
