@@ -12,7 +12,7 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 - TypeScript (strict) and JavaScript (type-checked via JSDoc + `// @ts-check`)
 - Page Object Model with custom Playwright fixtures
 - GitHub Actions – CI on push / pull request
-- Jenkins – daily scheduled runs (smoke in the morning, regression after lunch) with a result email
+- Jenkins – daily scheduled runs (smoke at 08:00 and 20:00, full suite at 13:00 and 16:00) with a result email
 - Browsers: Chromium, Firefox, WebKit
 
 ## Project structure
@@ -332,10 +332,12 @@ The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or
 
   | Time | `SUITE` | Runs |
   |---|---|---|
-  | 07:00 daily | `smoke` | Tests tagged `@smoke` (`--grep @smoke`) |
-  | 13:00 daily | `regression` | Every other test (`--grep-invert @smoke`) |
+  | 08:00 daily | `smoke` | Tests tagged `@smoke` (`--grep @smoke`) |
+  | 13:00 daily | `all` | The full suite |
+  | 16:00 daily | `all` | The full suite |
+  | 20:00 daily | `smoke` | Tests tagged `@smoke` |
 
-  Together the two runs cover the whole suite every day. **Build with Parameters** runs on demand.
+  **Build with Parameters** runs on demand.
 - **Parameter `SUITE`:** `all` (default for manual builds), `smoke` or `regression`
 - **Parameter `BROWSER`:** `chromium` (default), `all`, `firefox` or `webkit`. All three browsers run 726 tests, which takes over an hour on a laptop agent
 - **Parameter `SCREENSHOTS`:** `step` (default, also used by scheduled builds) or `failure`

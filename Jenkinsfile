@@ -22,11 +22,13 @@ pipeline {
 
   triggers {
     // India time (TZ makes this independent of the server's time zone), via the Parameterized Scheduler
-    // plugin: 07:00 runs the smoke tests, 13:00 runs the rest, so the full suite runs every day.
+    // plugin: smoke tests at 08:00 and 20:00, the full suite at 13:00 and 16:00.
     // A Jenkins on a laptop only runs schedules while the machine is on.
     parameterizedCron('''TZ=Asia/Kolkata
-0 7 * * * %SUITE=smoke
-0 13 * * * %SUITE=regression''')
+0 8 * * * %SUITE=smoke
+0 13 * * * %SUITE=all
+0 16 * * * %SUITE=all
+0 20 * * * %SUITE=smoke''')
   }
 
   options {

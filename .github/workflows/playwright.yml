@@ -1,7 +1,7 @@
 name: Playwright Tests
 
 on:
-  # Scheduled runs (07:00 smoke, 13:00 regression, IST) happen in Jenkins; see the Jenkinsfile.
+  # Scheduled runs (IST: smoke at 08:00 and 20:00, full suite at 13:00 and 16:00) happen in Jenkins; see the Jenkinsfile.
   push:
     branches: [main]
   pull_request:
