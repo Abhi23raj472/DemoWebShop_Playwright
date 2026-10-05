@@ -6,11 +6,14 @@ End-to-end UI test automation for [Tricentis Demo Web Shop](https://demowebshop.
 
 The `typescript/` and `javascript/` folders are two parallel implementations of the same framework and test cases, so either language can be used as a reference.
 
+**Contents:** [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Test cases](#test-cases) · [Getting started](#getting-started) · [Running tests](#running-tests) · [Configuration](#configuration) · [Reports](#reports) · [CI/CD](#cicd) · [Jenkins](#jenkins) · [Adding a new test](#adding-a-new-test) · [Security](#security)
+
 ## Tech stack
 
 - [Playwright Test](https://playwright.dev) – test runner, browsers, assertions, reports
 - TypeScript (strict) and JavaScript (type-checked via JSDoc + `// @ts-check`)
 - Page Object Model with custom Playwright fixtures
+- [Allure Report](https://allurereport.org) – second report with steps, screenshots and trends
 - GitHub Actions – CI on push / pull request
 - Jenkins – daily scheduled runs (smoke at 08:00 and 20:00, full suite at 13:00 and 16:00) with a result email
 - Browsers: Chromium, Firefox, WebKit
@@ -22,11 +25,13 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 ├── Jenkinsfile                        # Jenkins pipeline (daily schedule, result email)
 ├── scripts/build-email.mjs            # Builds the Jenkins result email from reports/junit.xml
 ├── setup/
-│   └── account.setup.ts               # Runs first: registers one shared test account
+│   ├── account.setup.ts               # Runs first: registers one shared test account
+│   └── global-setup.ts                # Clears old Allure results before each run
 ├── typescript/
 │   ├── pages/                         # Page Objects, one per page/feature (see below)
 │   ├── fixtures/pageFixtures.ts       # Injects page objects, the shared account and `freshUser`
 │   ├── utils/helpers.ts               # uniqueEmail(), parsePrice(), isSorted()
+│   ├── utils/steps.ts                 # Named steps + screenshots for every page-object action
 │   └── tests/
 │       ├── home/                      # openUrl, navigation
 │       ├── auth/                      # login, register, passwordRecovery
@@ -45,6 +50,7 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 │   ├── products.json                  # Products and categories used by the tests
 │   └── checkout.json                  # Address and credit card test data
 ├── playwright.config.ts               # Browsers, timeouts, retries, reporters
+├── allurerc.mjs                       # Allure report settings
 ├── tsconfig.json
 ├── .env.example                       # Template for optional local credentials
 └── package.json
@@ -79,7 +85,7 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 | Newsletter | `support/newsletter` | 1 | 2 | 3 |
 | **Total** | | **71** | **50** | **121** |
 
-Tags: `@smoke` marks a quick sanity subset (`npm run test:smoke`); `@e2e` marks the full checkout journeys.
+Tags: `@smoke` marks a quick sanity subset of 14 cases (28 tests per browser across both languages; `npm run test:smoke`); `@e2e` marks the full checkout journeys.
 
 <details>
 <summary><b>All test cases</b> (click to expand)</summary>
@@ -223,7 +229,7 @@ Tags: `@smoke` marks a quick sanity subset (`npm run test:smoke`); `@e2e` marks 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) 18 or newer
+- [Node.js](https://nodejs.org) 20 or newer
 - Git
 
 ### Installation
@@ -268,7 +274,7 @@ npx playwright test --debug                                                # ste
 
 Key settings in [playwright.config.ts](playwright.config.ts):
 
-| Setting | Local | CI | Why |
+| Setting | Local | CI / Jenkins | Why |
 |---|---|---|---|
 | Workers | 2 (Firefox: 1) | 1 per job | The demo site is slow; too many parallel browsers cause timeouts |
 | Retries | 1 | 2 | Absorb occasional slowness of the public demo site |
@@ -328,25 +334,28 @@ Artifacts on each run's summary page (kept for 7 days):
 
 The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or Linux agents): checkout → `npm ci` + browser install → type check → tests → reports. It runs alongside GitHub Actions.
 
-- **Schedule** (India time, `TZ=Asia/Kolkata`; only while the Jenkins machine is on):
-
-  | Time | `SUITE` | Runs |
-  |---|---|---|
-  | 08:00 daily | `smoke` | Tests tagged `@smoke` (`--grep @smoke`) |
-  | 13:00 daily | `all` | The full suite |
-  | 16:00 daily | `all` | The full suite |
-  | 20:00 daily | `smoke` | Tests tagged `@smoke` |
-
-  **Build with Parameters** runs on demand.
 - **Parameter `SUITE`:** `all` (default for manual builds), `smoke` or `regression`
 - **Parameter `BROWSER`:** `chromium` (default), `all`, `firefox` or `webkit`. All three browsers run 726 tests, which takes over an hour on a laptop agent
 - **Parameter `SCREENSHOTS`:** `step` (default, also used by scheduled builds) or `failure`
 - **Reports on each build:** *Playwright Report* (HTML), *Allure Report* (a single self-contained file, with trends kept in the workspace's `allure-history.jsonl`), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
 - **Result email** after every build: pass/fail totals, the failed tests with their errors, and links to the reports. The Allure report is attached when it is under 18 MB (usually smoke runs); larger reports are linked instead
 
+### Schedule
+
+Daily, India time (`TZ=Asia/Kolkata`), in Chromium with step screenshots:
+
+| Time | `SUITE` | Runs | Approx. duration |
+|---|---|---|---|
+| 08:00 | `smoke` | Tests tagged `@smoke` (`--grep @smoke`) | 15 min |
+| 13:00 | `all` | The full suite | 1–1.5 h |
+| 16:00 | `all` | The full suite | 1–1.5 h |
+| 20:00 | `smoke` | Tests tagged `@smoke` | 15 min |
+
+Schedules only run while the Jenkins machine is on and awake. **Build with Parameters** runs any suite on demand.
+
 ### Requirements
 
-- Jenkins 2.4xx+ on Java 17 or 21, and Node.js 18+ on the agent
+- Jenkins 2.528.3 or newer on Java 21, and Node.js 20+ on the agent
 - Plugins: **Pipeline**, **Git**, **JUnit** (all in "Install suggested plugins"), **HTML Publisher**, **Email Extension** and **Parameterized Scheduler**
 - To display the Playwright report inside Jenkins, start Jenkins with a Content-Security-Policy that allows the report's scripts, for example:
 
@@ -362,7 +371,7 @@ The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or
 2. **Pipeline** section → Definition: **Pipeline script from SCM** → SCM: **Git**
    - Repository URL: `https://github.com/Abhi23raj472/DemoWebShop_Playwright.git` (public, no credentials needed)
    - Branch: `*/main` · Script Path: `Jenkinsfile`
-3. **Save** → **Build Now**. The first build registers the parameters and the daily schedule; after that, use **Build with Parameters**.
+3. **Save** → **Build Now**. The first build runs the full suite in Chromium and registers the parameters and the daily schedule; after that, use **Build with Parameters**.
 
 ### Result email
 
@@ -371,6 +380,8 @@ The recipient and the mail account live in Jenkins, not in this repository:
 1. **Manage Jenkins → System → Global properties → Environment variables:** add `REPORT_EMAIL` = your address (several addresses: separate them with commas). If it is not set, no email is sent.
 2. **Manage Jenkins → System → Extended E-mail Notification:** SMTP server `smtp.gmail.com`, port `465`, **Use SSL**, credentials = a *Username with password* credential holding the Gmail address and a Gmail **App Password** (Google Account → Security → 2-Step Verification → App passwords). Your normal Gmail password does not work here.
 3. **Manage Jenkins → System → Jenkins Location → System Admin e-mail address:** the same Gmail address (the sender).
+
+The subject shows the suite, build number and result, e.g. *[Jenkins] Demo Web Shop Smoke (@smoke) #4: PASSED (28/28 passed)*. Report links in the email point to the Jenkins server, so they open only where Jenkins is reachable.
 
 A mail problem is logged in the console ("Result email not sent: …") but never fails the build.
 
@@ -393,5 +404,6 @@ test('TC_XXX_01: description @smoke', async ({ homePage }) => {
 
 - **No real credentials in this repo or in CI.** CI always uses a freshly registered throwaway account, and no site credentials are passed to the workflow.
 - Playwright traces and reports record typed values (including passwords) and form posts in plain text, and uploaded artifacts are **not** masked by GitHub. That is why personal accounts should never be used, locally or on CI.
-- `.env`, `.auth/`, `test-results/` and `playwright-report/` are git-ignored.
+- The report email address and the Gmail App Password are stored only in Jenkins (the password as an encrypted credential), never in this repository.
+- `.env`, `.auth/` and all test output (`test-results/`, `playwright-report/`, `blob-report/`, `reports/`, `allure-results/`, `allure-report/`, `allure-history.jsonl`) are git-ignored.
 - The workflow runs with read-only repository permissions (`contents: read`).
