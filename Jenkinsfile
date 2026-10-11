@@ -51,6 +51,10 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+        // Remove the previous build's reports, so a build that stops early can't publish or email old results.
+        dir('reports') { deleteDir() }
+        dir('playwright-report') { deleteDir() }
+        dir('allure-report') { deleteDir() }
       }
     }
 

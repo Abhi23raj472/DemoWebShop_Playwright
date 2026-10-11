@@ -124,6 +124,7 @@ const body = `<!doctype html>
   </table>`
       : ''
   }
+  ${total === 0 ? '<p style="margin-top:16px">No test results were produced: the build stopped or failed before the tests finished. See the console log.</p>' : ''}
   <p style="margin-top:16px">${attachmentNote}</p>
   ${links}
 </body></html>
