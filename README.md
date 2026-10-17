@@ -14,16 +14,16 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 - TypeScript (strict) and JavaScript (type-checked via JSDoc + `// @ts-check`)
 - Page Object Model with custom Playwright fixtures
 - [Allure Report](https://allurereport.org) – second report with steps, screenshots and trends
-- GitHub Actions – CI on push / pull request
-- Jenkins – daily scheduled runs (smoke at 08:00 and 20:00, full suite at 13:00 and 16:00) with a result email
+- GitHub Actions – daily scheduled runs (smoke at 08:00 and 20:00 IST, full suite at 13:00 and 16:00 IST) plus CI on push / pull request, with a result email
+- Jenkins – the same pipeline for on-demand runs on your own machine, with a result email
 - Browsers: Chromium, Firefox, WebKit
 
 ## Project structure
 
 ```
 ├── .github/workflows/playwright.yml   # GitHub Actions pipeline (push, PR, manual run)
-├── Jenkinsfile                        # Jenkins pipeline (daily schedule, result email)
-├── scripts/build-email.mjs            # Builds the Jenkins result email from reports/junit.xml
+├── Jenkinsfile                        # Jenkins pipeline (on-demand runs, result email)
+├── scripts/build-email.mjs            # Builds the result email (GitHub Actions and Jenkins) from reports/junit.xml
 ├── setup/
 │   ├── account.setup.ts               # Runs first: registers one shared test account
 │   └── global-setup.ts                # Clears old Allure results before each run
@@ -301,7 +301,7 @@ The `SCREENSHOTS` setting controls when screenshots are taken:
 
 | Value | Screenshots | Default for |
 |---|---|---|
-| `step` | After every step, once the page has settled | CI, Jenkins and scheduled runs |
+| `step` | After every step, once the page has settled | GitHub Actions and Jenkins runs |
 | `failure` | Only when a test fails | Local runs (faster) |
 
 Whatever the mode, a failing step gets a **FAILED: …** screenshot at the exact point it failed, and a failed test also keeps its trace and a video of its retry.
@@ -317,46 +317,57 @@ Step titles never include the values typed (such as passwords), but screenshots,
 
 ## CI/CD
 
-The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs (scheduled runs are in [Jenkins](#jenkins)):
+The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs on GitHub's servers, so no PC needs to be on:
 
-- On every **push** and **pull request** to `main`
-- **Manually** from the Actions tab → *Playwright Tests* → *Run workflow*
+- **Daily on a schedule** (India time; cron in UTC):
 
-Chromium, Firefox and WebKit run as three parallel jobs, with screenshots at every step. Each job type-checks the code and runs the tests. A final **Merge reports** job then combines the three browsers into one Playwright HTML report and one Allure report.
+  | Time (IST) | Cron (UTC) | Suite | Email after about |
+  |---|---|---|---|
+  | 08:00 | `30 2 * * *` | Smoke (`@smoke`) | 10 min |
+  | 13:00 | `30 7 * * *` | Full suite | 30 min |
+  | 16:00 | `30 10 * * *` | Full suite | 30 min |
+  | 20:00 | `30 14 * * *` | Smoke (`@smoke`) | 10 min |
+
+  GitHub can start scheduled runs a few minutes late when it is busy, and it pauses schedules in a repository with no activity for 60 days (re-enable them in the Actions tab).
+- On every **push** and **pull request** to `main` (full suite)
+- **Manually** from the Actions tab → *Playwright Tests* → *Run workflow* (choose `all` or `smoke`)
+
+Chromium, Firefox and WebKit run as three parallel jobs, with screenshots at every step. Each job type-checks the code and runs the tests. A final **Merge reports & email** job then combines the three browsers into one Playwright HTML report and one Allure report, and emails the result.
 
 Artifacts on each run's summary page (kept for 7 days):
 
 - `playwright-report` – the merged Playwright HTML report for all browsers (unzip and open `index.html`)
-- `allure-report` – the merged Allure report (unzip, then run `npx allure open <folder>`; it needs a local web server)
+- `allure-report` – the merged Allure report as a single file (unzip and open `index.html`)
 - `test-results-<browser>` – screenshots, traces and videos (failed runs only; view a trace with `npx playwright show-trace trace.zip`)
+
+### Result email (GitHub Actions)
+
+Every run emails a summary: totals for all three browsers, failed tests with their errors, and a link to the run, where the reports can be downloaded. The Allure report is attached when it is under 18 MB (usually smoke runs); otherwise it is linked.
+
+The email is sent only when these repository secrets exist (**Settings → Secrets and variables → Actions → New repository secret**):
+
+| Secret | Value |
+|---|---|
+| `MAIL_USERNAME` | The Gmail address that sends the email |
+| `MAIL_PASSWORD` | A Gmail **App Password** for that address (not the normal Gmail password) |
+| `MAIL_TO` | Recipient address(es), comma-separated |
+
+Secrets are encrypted, hidden in logs, and passed only to the send step. Pull requests from forks get no secrets, so they send no email.
 
 ## Jenkins
 
-The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or Linux agents): checkout → `npm ci` + browser install → type check → tests → reports. It runs alongside GitHub Actions.
+The [Jenkinsfile](Jenkinsfile) defines the same pipeline for Jenkins (Windows or Linux agents): checkout → `npm ci` + browser install → type check → tests → reports. It has no schedule of its own (the daily runs are in [GitHub Actions](#cicd)); start it with **Build with Parameters**.
 
 - **Parameter `SUITE`:** `all` (default for manual builds), `smoke` or `regression`
 - **Parameter `BROWSER`:** `chromium` (default), `all`, `firefox` or `webkit`. All three browsers run 726 tests, which takes over an hour on a laptop agent
-- **Parameter `SCREENSHOTS`:** `step` (default, also used by scheduled builds) or `failure`
+- **Parameter `SCREENSHOTS`:** `step` (default) or `failure`
 - **Reports on each build:** *Playwright Report* (HTML), *Allure Report* (a single self-contained file, with trends kept in the workspace's `allure-history.jsonl`), *Test Result* trend (JUnit, from `reports/junit.xml`), and archived `test-results/` (screenshots, traces, videos) when a build fails
 - **Result email** after every build: pass/fail totals, the failed tests with their errors, and links to the reports. The Allure report is attached when it is under 18 MB (usually smoke runs); larger reports are linked instead
-
-### Schedule
-
-Daily, India time (`TZ=Asia/Kolkata`), in Chromium with step screenshots:
-
-| Time | `SUITE` | Runs | Approx. duration |
-|---|---|---|---|
-| 08:00 | `smoke` | Tests tagged `@smoke` (`--grep @smoke`) | 15 min |
-| 13:00 | `all` | The full suite | 1–1.5 h |
-| 16:00 | `all` | The full suite | 1–1.5 h |
-| 20:00 | `smoke` | Tests tagged `@smoke` | 15 min |
-
-Schedules only run while the Jenkins machine is on and awake. **Build with Parameters** runs any suite on demand.
 
 ### Requirements
 
 - Jenkins 2.528.3 or newer on Java 21, and Node.js 20+ on the agent
-- Plugins: **Pipeline**, **Git**, **JUnit** (all in "Install suggested plugins"), **HTML Publisher**, **Email Extension** and **Parameterized Scheduler**
+- Plugins: **Pipeline**, **Git**, **JUnit** (all in "Install suggested plugins"), **HTML Publisher** and **Email Extension**
 - To display the Playwright report inside Jenkins, start Jenkins with a Content-Security-Policy that allows the report's scripts, for example:
 
   ```
@@ -371,9 +382,9 @@ Schedules only run while the Jenkins machine is on and awake. **Build with Param
 2. **Pipeline** section → Definition: **Pipeline script from SCM** → SCM: **Git**
    - Repository URL: `https://github.com/Abhi23raj472/DemoWebShop_Playwright.git` (public, no credentials needed)
    - Branch: `*/main` · Script Path: `Jenkinsfile`
-3. **Save** → **Build Now**. The first build runs the full suite in Chromium and registers the parameters and the daily schedule; after that, use **Build with Parameters**.
+3. **Save** → **Build Now**. The first build runs the full suite in Chromium and registers the parameters; after that, use **Build with Parameters**.
 
-### Result email
+### Result email (Jenkins)
 
 The recipient and the mail account live in Jenkins, not in this repository:
 
@@ -404,6 +415,7 @@ test('TC_XXX_01: description @smoke', async ({ homePage }) => {
 
 - **No real credentials in this repo or in CI.** CI always uses a freshly registered throwaway account, and no site credentials are passed to the workflow.
 - Playwright traces and reports record typed values (including passwords) and form posts in plain text, and uploaded artifacts are **not** masked by GitHub. That is why personal accounts should never be used, locally or on CI.
-- The report email address and the Gmail App Password are stored only in Jenkins (the password as an encrypted credential), never in this repository.
+- The report email address and the Gmail App Password are stored only in GitHub repository secrets and in Jenkins (an encrypted credential), never in this repository.
+- The third-party email action is pinned to a commit SHA, because it receives the mail password.
 - `.env`, `.auth/` and all test output (`test-results/`, `playwright-report/`, `blob-report/`, `reports/`, `allure-results/`, `allure-report/`, `allure-history.jsonl`) are git-ignored.
 - The workflow runs with read-only repository permissions (`contents: read`).

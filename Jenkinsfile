@@ -20,16 +20,8 @@ pipeline {
     choice(name: 'SCREENSHOTS', choices: ['step', 'failure'], description: 'step: screenshot after every step; failure: only when a test fails (faster)')
   }
 
-  triggers {
-    // India time (TZ makes this independent of the server's time zone), via the Parameterized Scheduler
-    // plugin: smoke tests at 08:00 and 20:00, the full suite at 13:00 and 16:00.
-    // A Jenkins on a laptop only runs schedules while the machine is on.
-    parameterizedCron('''TZ=Asia/Kolkata
-0 8 * * * %SUITE=smoke
-0 13 * * * %SUITE=all
-0 16 * * * %SUITE=all
-0 20 * * * %SUITE=smoke''')
-  }
+  // No schedule here: the daily runs (08:00, 13:00, 16:00, 20:00 IST) happen in GitHub Actions, which
+  // works while this PC is off. Use Build with Parameters to run on demand.
 
   options {
     timeout(time: 150, unit: 'MINUTES')

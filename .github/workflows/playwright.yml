@@ -1,17 +1,30 @@
 name: Playwright Tests
 
 on:
-  # Scheduled runs (IST: smoke at 08:00 and 20:00, full suite at 13:00 and 16:00) happen in Jenkins; see the Jenkinsfile.
+  # Daily in India time (IST = UTC+5:30; cron is in UTC). GitHub may start scheduled runs a few minutes late.
+  schedule:
+    - cron: '30 2,14 * * *'   # 08:00 and 20:00 IST: smoke tests
+    - cron: '30 7,10 * * *'   # 13:00 and 16:00 IST: full suite
   push:
     branches: [main]
   pull_request:
     branches: [main]
   # Adds a "Run workflow" button in the GitHub Actions tab.
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Tests to run'
+        type: choice
+        options: [all, smoke]
+        default: all
 
 # Least privilege: the workflow only needs to read the code.
 permissions:
   contents: read
+
+env:
+  # smoke: tests tagged @smoke; all: the full suite. Push and pull request runs use the full suite.
+  SUITE: ${{ github.event.schedule == '30 2,14 * * *' && 'smoke' || github.event.inputs.suite || 'all' }}
 
 jobs:
   test:
@@ -48,7 +61,7 @@ jobs:
       # in plain text, and uploaded artifacts are not masked. The setup project registers a
       # throwaway account on every run instead.
       - name: Run Playwright tests
-        run: npx playwright test --project=${{ matrix.browser }}
+        run: npx playwright test --project=${{ matrix.browser }} $([ "$SUITE" = smoke ] && echo --grep @smoke)
         env:
           BLOB_NAME: ${{ matrix.browser }}
 
@@ -79,12 +92,17 @@ jobs:
           retention-days: 7
 
   report:
-    name: Merge reports (Playwright + Allure)
+    name: Merge reports & email
     # Run after all browser jobs, whether they passed or failed.
     needs: test
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Only a true/false flag here; the secrets themselves reach the send step alone, so other steps
+      # (npm ci, report generation) never see the mail password. Secrets are not available to pull
+      # requests from forks, so the email is skipped there.
+      MAIL_CONFIGURED: ${{ secrets.MAIL_USERNAME != '' && secrets.MAIL_PASSWORD != '' && secrets.MAIL_TO != '' }}
 
     steps:
       - name: Check out code
@@ -107,13 +125,16 @@ jobs:
           path: all-blob-reports
           merge-multiple: true
 
+      # JUnit XML feeds the email summary (scripts/build-email.mjs).
       - name: Merge into one HTML report
         run: |
           if ls all-blob-reports/*.zip >/dev/null 2>&1; then
-            npx playwright merge-reports --reporter html ./all-blob-reports
+            npx playwright merge-reports --reporter html,junit ./all-blob-reports
           else
             echo "No blob reports found."
           fi
+        env:
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: reports/junit.xml
 
       - name: Upload merged HTML report
         if: ${{ hashFiles('playwright-report/index.html') != '' }}
@@ -132,6 +153,7 @@ jobs:
           path: allure-results
           merge-multiple: true
 
+      # A single self-contained index.html: opens straight from disk and can be attached to the email.
       - name: Generate Allure report
         run: |
           if ls allure-results/*-result.json >/dev/null 2>&1; then
@@ -139,8 +161,10 @@ jobs:
           else
             echo "No Allure results found."
           fi
+        env:
+          ALLURE_SINGLE_FILE: 'true'
 
-      # Download, unzip and run `npx allure open <folder>` to view (it needs a local web server).
+      # Download, unzip and open index.html in a browser.
       - name: Upload Allure report
         if: ${{ hashFiles('allure-report/index.html') != '' }}
         uses: actions/upload-artifact@v4
@@ -148,3 +172,32 @@ jobs:
           name: allure-report
           path: allure-report/
           retention-days: 7
+
+      # Summary, failed tests and a link to this run; the Allure report is attached when it fits in Gmail.
+      - name: Build email
+        id: email
+        if: ${{ !cancelled() && env.MAIL_CONFIGURED == 'true' }}
+        run: |
+          node scripts/build-email.mjs
+          echo "subject=$(cat reports/email-subject.txt)" >> "$GITHUB_OUTPUT"
+          if [ -f reports/allure-report.html ]; then
+            echo "attachments=reports/allure-report.html" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          BROWSER: chromium, firefox, webkit
+
+      - name: Send email
+        if: ${{ !cancelled() && env.MAIL_CONFIGURED == 'true' }}
+        # Pinned to a commit (v22) because this third-party action receives the mail password.
+        uses: dawidd6/action-send-mail@67ce3558d613188179559c61d3565140cf389968
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: Demo Web Shop CI <${{ secrets.MAIL_USERNAME }}>
+          to: ${{ secrets.MAIL_TO }}
+          subject: ${{ steps.email.outputs.subject }}
+          html_body: file://reports/email.html
+          attachments: ${{ steps.email.outputs.attachments }}

@@ -1,9 +1,9 @@
-// Builds the Jenkins result email from reports/junit.xml:
+// Builds the result email (Jenkins or GitHub Actions) from reports/junit.xml:
 //   reports/email-subject.txt  – subject line
 //   reports/email.html         – HTML body (totals, failed tests, report links)
 //   reports/allure-report.html – the single-file Allure report, attached only when it is small enough
 //                                for Gmail (25 MB limit, minus base64 overhead)
-// Used by the Jenkinsfile; run after `npx allure generate`. Needs no extra packages.
+// Used by the Jenkinsfile and the GitHub Actions workflow; run after `npx allure generate`. Needs no extra packages.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -12,10 +12,15 @@ const ALLURE = 'allure-report/index.html';
 const ATTACHMENT = 'reports/allure-report.html';
 const MAX_ATTACHMENT_MB = 18;
 
-const suite = process.env.SUITE || 'all';
-const browser = process.env.BROWSER || 'chromium';
-const buildUrl = process.env.BUILD_URL || '';
-const buildName = process.env.BUILD_DISPLAY_NAME || '';
+const env = process.env;
+const github = env.GITHUB_ACTIONS === 'true';
+const source = github ? 'GitHub Actions' : 'Jenkins';
+const suite = env.SUITE || 'all';
+const browser = env.BROWSER || 'chromium';
+const buildUrl = env.BUILD_URL || '';
+const runUrl = github ? `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : '';
+const buildName = github ? `#${env.GITHUB_RUN_NUMBER}` : env.BUILD_DISPLAY_NAME || '';
+const trigger = github ? { schedule: 'Daily schedule', push: 'Push', pull_request: 'Pull request', workflow_dispatch: 'Manual run' }[env.GITHUB_EVENT_NAME] ?? env.GITHUB_EVENT_NAME : '';
 
 const decode = (s) =>
   s
@@ -69,12 +74,12 @@ if (!fs.existsSync(ALLURE)) {
     fs.copyFileSync(ALLURE, ATTACHMENT);
     attachmentNote = `The Allure report (steps and screenshots) is attached: open <b>${path.basename(ATTACHMENT)}</b> in a browser.`;
   } else {
-    attachmentNote = `The Allure report (${mb.toFixed(0)} MB) is too large to attach; open it from Jenkins with the link below.`;
+    attachmentNote = `The Allure report (${mb.toFixed(0)} MB) is too large to attach; open it from ${source} with the link below.`;
   }
 }
 
 // ---- Subject and body ----
-const subject = `[Jenkins] Demo Web Shop ${suiteLabel}${buildName ? ` ${buildName}` : ''}: ${result} (${passed}/${total} passed)`;
+const subject = `[${source}] Demo Web Shop ${suiteLabel}${buildName ? ` ${buildName}` : ''}: ${result} (${passed}/${total} passed)`;
 
 const row = (label, value) =>
   `<tr><td style="padding:4px 12px 4px 0;color:#57606a">${label}</td><td style="padding:4px 0"><b>${value}</b></td></tr>`;
@@ -91,7 +96,10 @@ const failedRows = tests
   .join('');
 
 const link = (label, url) => `<li><a href="${escape(url)}">${label}</a></li>`;
-const links = buildUrl
+const links = github
+  ? `<p style="margin:16px 0 4px"><a href="${escape(runUrl)}">Open the run on GitHub</a>: its <b>Artifacts</b> section has the
+    <code>playwright-report</code> and <code>allure-report</code> downloads (kept for 7 days).</p>`
+  : buildUrl
   ? `<p style="margin:16px 0 4px">Reports in Jenkins (open on the PC running Jenkins):</p>
     <ul style="margin:0">
       ${link('Allure Report', `${buildUrl}Allure_20Report/`)}
@@ -108,7 +116,8 @@ const body = `<!doctype html>
   <table style="margin-top:12px;border-collapse:collapse">
     ${row('Suite', escape(suiteLabel))}
     ${row('Browser', escape(browser))}
-    ${row('Build', escape(buildName || '-'))}
+    ${row('Build', escape(`${source} ${buildName}`.trim()))}
+    ${trigger ? row('Trigger', escape(trigger)) : ''}
     ${row('Total', total)}
     ${row('Passed', `<span style="color:#1a7f37">${passed}</span>`)}
     ${row('Failed', `<span style="color:#cf222e">${failed}</span>`)}
