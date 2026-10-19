@@ -22,6 +22,12 @@ class ProductPage extends BasePage {
     this.senderEmail = page.locator('input[id$="_SenderEmail"]');
   }
 
+  /** "Add to compare list" opens the compare page; waits for it so the next navigation can't cancel the add. */
+  async addToCompare() {
+    await this.addToCompareButton.click();
+    await this.page.waitForURL(/\/compareproducts/, { waitUntil: 'domcontentloaded' });
+  }
+
   /**
    * Opens a product by its URL slug, e.g. "141-inch-laptop".
    * @param {string} slug

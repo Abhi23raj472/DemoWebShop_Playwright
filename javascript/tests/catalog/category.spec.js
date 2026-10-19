@@ -47,8 +47,9 @@ test.describe('Category listing - Positive', () => {
     await expect(categoryPage.products).toHaveCount(4);
     const firstPage = await categoryPage.titles();
 
-    await categoryPage.pager.getByRole('link', { name: 'Next' }).click();
+    await categoryPage.nextPage();
     await expect(page).toHaveURL(/pagenumber=2/);
+    await expect(categoryPage.products.first()).toBeVisible();
     expect(await categoryPage.titles()).not.toEqual(firstPage);
   });
 
@@ -66,9 +67,8 @@ test.describe('Category listing - Positive', () => {
     { index: 2, name: 'Over 50', min: 50, max: Infinity, hasProducts: true },
   ];
   ranges.forEach((range, i) => {
-    test(`TC_CAT_0${8 + i}: price filter "${range.name}" shows only products in range`, async ({ page, categoryPage }) => {
-      await categoryPage.priceFilterLinks.nth(range.index).click();
-      await expect(page).toHaveURL(/price=/);
+    test(`TC_CAT_${String(8 + i).padStart(2, '0')}: price filter "${range.name}" shows only products in range`, async ({ categoryPage }) => {
+      await categoryPage.filterByPrice(range.index);
       const prices = await categoryPage.prices();
       expect(prices.length > 0).toBe(range.hasProducts);
       for (const price of prices) {

@@ -49,6 +49,12 @@ export class ProductPage extends BasePage {
   }
 
   /** Opens a product by its URL slug, e.g. "141-inch-laptop". */
+  /** "Add to compare list" opens the compare page; waits for it so the next navigation can't cancel the add. */
+  async addToCompare() {
+    await this.addToCompareButton.click();
+    await this.page.waitForURL(/\/compareproducts/, { waitUntil: 'domcontentloaded' });
+  }
+
   async goto(slug: string) {
     await this.open(`/${slug}`);
   }

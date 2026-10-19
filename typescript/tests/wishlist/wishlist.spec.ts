@@ -31,7 +31,6 @@ test.describe('Wishlist - Positive', () => {
 
     await wishlistPage.goto();
     await wishlistPage.moveToCart();
-    await cartPage.goto();
     await expect(cartPage.productNames).toHaveText([products.smartphone.name]);
   });
 

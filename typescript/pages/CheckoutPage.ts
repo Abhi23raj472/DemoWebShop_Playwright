@@ -89,6 +89,8 @@ export class CheckoutPage extends BasePage {
    * Registered users with saved addresses get a dropdown first, so "New Address" is selected.
    */
   async fillBillingAddress(address: Address) {
+    // Wait for the billing step: isVisible() below doesn't wait, so it could check the previous page.
+    await this.billingContinue.waitFor();
     if (await this.billingAddressSelect.isVisible()) {
       await this.billingAddressSelect.selectOption({ label: 'New Address' });
     }

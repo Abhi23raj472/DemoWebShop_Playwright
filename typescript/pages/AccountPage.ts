@@ -67,6 +67,14 @@ export class AccountPage extends BasePage {
     await this.open('/customer/info');
   }
 
+  /** Clicks Save on the customer info page and waits until the server has stored the changes. */
+  async saveInfo() {
+    await Promise.all([
+      this.page.waitForResponse((r) => r.url().includes('/customer/info') && r.request().method() === 'POST'),
+      this.saveInfoButton.click(),
+    ]);
+  }
+
   async gotoAddresses() {
     await this.open('/customer/addresses');
   }

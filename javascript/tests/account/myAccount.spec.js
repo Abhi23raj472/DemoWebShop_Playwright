@@ -23,7 +23,7 @@ test.describe('My account - Positive', () => {
   test('TC_ACC_02: update first name in customer info', async ({ freshUser, page, accountPage }) => {
     await accountPage.gotoInfo();
     await accountPage.firstName.fill('Updated');
-    await accountPage.saveInfoButton.click();
+    await accountPage.saveInfo();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(accountPage.firstName).toHaveValue('Updated');
     await expect(accountPage.email).toHaveValue(freshUser.email);

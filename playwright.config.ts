@@ -29,8 +29,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
-  // More parallel browsers than this max out CPU/RAM on an 8-core, 8 GB machine and cause random timeouts.
-  workers: process.env.CI ? 1 : 2,
+  // More parallel browsers than this max out CPU/RAM on an 8-core, 8 GB machine and cause random timeouts,
+  // so the Jenkins laptop runs one at a time; GitHub's runners (4 vCPU, 16 GB) and local runs use 2.
+  workers: process.env.JENKINS_URL ? 1 : 2,
   timeout: 90_000,
   expect: { timeout: 15_000 },
   reporter: process.env.JENKINS_URL

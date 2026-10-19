@@ -17,7 +17,7 @@ test.describe('Compare products - Positive', () => {
   test('TC_CMP_02: compare two products @smoke', async ({ productPage, comparePage }) => {
     for (const product of [products.smartphone, products.laptop]) {
       await productPage.goto(product.slug);
-      await productPage.addToCompareButton.click();
+      await productPage.addToCompare();
     }
     await expect(comparePage.table).toBeVisible();
     await expect(comparePage.productNames).toHaveCount(2);
@@ -27,7 +27,7 @@ test.describe('Compare products - Positive', () => {
   test('TC_CMP_03: remove one product from the comparison', async ({ productPage, comparePage }) => {
     for (const product of [products.smartphone, products.laptop]) {
       await productPage.goto(product.slug);
-      await productPage.addToCompareButton.click();
+      await productPage.addToCompare();
     }
     await comparePage.removeButtons.first().click();
     await expect(comparePage.productNames).toHaveCount(1);
@@ -35,7 +35,7 @@ test.describe('Compare products - Positive', () => {
 
   test('TC_CMP_04: clear the comparison list', async ({ productPage, comparePage }) => {
     await productPage.goto(products.smartphone.slug);
-    await productPage.addToCompareButton.click();
+    await productPage.addToCompare();
     await comparePage.clearListLink.click();
     await expect(comparePage.pageBody).toContainText('You have no items to compare.');
   });
@@ -45,9 +45,9 @@ test.describe('Compare products - Negative', () => {
   // Adding a product that is already in the list does not create a second column.
   test('TC_CMP_05: same product added twice appears once', async ({ productPage, comparePage }) => {
     await productPage.goto(products.smartphone.slug);
-    await productPage.addToCompareButton.click();
+    await productPage.addToCompare();
     await productPage.goto(products.smartphone.slug);
-    await productPage.addToCompareButton.click();
+    await productPage.addToCompare();
     await expect(comparePage.productNames).toHaveCount(1);
   });
 });

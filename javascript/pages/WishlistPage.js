@@ -19,12 +19,13 @@ class WishlistPage extends BasePage {
   }
 
   /**
-   * Ticks "Add to cart" for the row at `index` and moves it to the cart.
+   * Ticks "Add to cart" for the row at `index`, moves it to the cart and waits for the cart page that follows.
    * @param {number} [index]
    */
   async moveToCart(index = 0) {
     await this.addToCartCheckboxes.nth(index).check();
     await this.addToCartButton.click();
+    await this.page.waitForURL(/\/cart/, { waitUntil: 'domcontentloaded' });
   }
 
   /** @param {number} [index] */

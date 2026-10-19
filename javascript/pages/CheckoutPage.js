@@ -66,6 +66,8 @@ class CheckoutPage extends BasePage {
    * @param {Address} address
    */
   async fillBillingAddress(address) {
+    // Wait for the billing step: isVisible() below doesn't wait, so it could check the previous page.
+    await this.billingContinue.waitFor();
     if (await this.billingAddressSelect.isVisible()) {
       await this.billingAddressSelect.selectOption({ label: 'New Address' });
     }

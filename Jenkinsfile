@@ -47,6 +47,7 @@ pipeline {
         dir('reports') { deleteDir() }
         dir('playwright-report') { deleteDir() }
         dir('allure-report') { deleteDir() }
+        dir('allure-results') { deleteDir() }
       }
     }
 

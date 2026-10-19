@@ -51,7 +51,9 @@ export function withSteps<T extends object>(pageObject: T, page: Page, testInfo:
             const result = await value.apply(target, args);
             if (screenshotMode() === 'step') {
               // Let the page settle (AJAX updates, notifications) so the screenshot shows the result of the action.
-              await page.waitForLoadState('networkidle', { timeout: 1500 }).catch(() => {});
+              // Kept short: third-party resources on this site often keep the network busy, so this wait
+              // usually runs its full timeout, once per step.
+              await page.waitForLoadState('networkidle', { timeout: 750 }).catch(() => {});
               await attachScreenshot(page, testInfo, title);
             }
             return result;

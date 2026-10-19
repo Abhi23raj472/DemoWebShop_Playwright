@@ -33,17 +33,39 @@ export class CategoryPage extends BasePage {
     await this.open(path);
   }
 
-  /** Selecting an option reloads the page (the site navigates on change). */
   async sort(label: 'Position' | 'Name: A to Z' | 'Name: Z to A' | 'Price: Low to High' | 'Price: High to Low' | 'Created on') {
-    await Promise.all([this.page.waitForURL(/orderby=/), this.sortBy.selectOption({ label })]);
+    await this.selectAndWait(this.sortBy, label);
   }
 
   async setPageSize(size: '4' | '8' | '12') {
-    await Promise.all([this.page.waitForURL(/pagesize=/), this.pageSize.selectOption({ label: size })]);
+    await this.selectAndWait(this.pageSize, size);
   }
 
   async setViewMode(label: 'Grid' | 'List') {
-    await Promise.all([this.page.waitForURL(/viewmode=/), this.viewMode.selectOption({ label })]);
+    await this.selectAndWait(this.viewMode, label);
+  }
+
+  /** Clicks the price range link at `index` and waits until the filtered page has loaded. */
+  async filterByPrice(index: number) {
+    await this.priceFilterLinks.nth(index).click();
+    await this.page.waitForURL(/price=/, { waitUntil: 'domcontentloaded' });
+  }
+
+  /** Goes to the next page of results and waits until it has loaded. */
+  async nextPage() {
+    await this.pager.getByRole('link', { name: 'Next' }).click();
+    await this.page.waitForURL(/pagenumber=/, { waitUntil: 'domcontentloaded' });
+  }
+
+  /**
+   * These dropdowns navigate on change: each option's value is the URL to open. Waits for exactly that
+   * URL (so a second sort in one test can't match the previous page) and only until the DOM is ready,
+   * like BasePage.open.
+   */
+  private async selectAndWait(select: Locator, label: string) {
+    const target = await select.locator('option', { hasText: label }).first().getAttribute('value');
+    const url = new URL(target ?? '', this.page.url()).href;
+    await Promise.all([this.page.waitForURL(url, { waitUntil: 'domcontentloaded' }), select.selectOption({ label })]);
   }
 
   async titles(): Promise<string[]> {

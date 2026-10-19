@@ -25,21 +25,48 @@ class CategoryPage extends BasePage {
   }
 
   /**
-   * Selecting an option reloads the page (the site navigates on change).
    * @param {'Position' | 'Name: A to Z' | 'Name: Z to A' | 'Price: Low to High' | 'Price: High to Low' | 'Created on'} label
    */
   async sort(label) {
-    await Promise.all([this.page.waitForURL(/orderby=/), this.sortBy.selectOption({ label })]);
+    await this.selectAndWait(this.sortBy, label);
   }
 
   /** @param {'4' | '8' | '12'} size */
   async setPageSize(size) {
-    await Promise.all([this.page.waitForURL(/pagesize=/), this.pageSize.selectOption({ label: size })]);
+    await this.selectAndWait(this.pageSize, size);
   }
 
   /** @param {'Grid' | 'List'} label */
   async setViewMode(label) {
-    await Promise.all([this.page.waitForURL(/viewmode=/), this.viewMode.selectOption({ label })]);
+    await this.selectAndWait(this.viewMode, label);
+  }
+
+  /**
+   * Clicks the price range link at `index` and waits until the filtered page has loaded.
+   * @param {number} index
+   */
+  async filterByPrice(index) {
+    await this.priceFilterLinks.nth(index).click();
+    await this.page.waitForURL(/price=/, { waitUntil: 'domcontentloaded' });
+  }
+
+  /** Goes to the next page of results and waits until it has loaded. */
+  async nextPage() {
+    await this.pager.getByRole('link', { name: 'Next' }).click();
+    await this.page.waitForURL(/pagenumber=/, { waitUntil: 'domcontentloaded' });
+  }
+
+  /**
+   * These dropdowns navigate on change: each option's value is the URL to open. Waits for exactly that
+   * URL (so a second sort in one test can't match the previous page) and only until the DOM is ready,
+   * like BasePage.open.
+   * @param {import('@playwright/test').Locator} select
+   * @param {string} label
+   */
+  async selectAndWait(select, label) {
+    const target = await select.locator('option', { hasText: label }).first().getAttribute('value');
+    const url = new URL(target ?? '', this.page.url()).href;
+    await Promise.all([this.page.waitForURL(url, { waitUntil: 'domcontentloaded' }), select.selectOption({ label })]);
   }
 
   /** @returns {Promise<string[]>} */

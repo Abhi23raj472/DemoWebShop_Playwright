@@ -24,10 +24,11 @@ export class WishlistPage extends BasePage {
     await this.open('/wishlist');
   }
 
-  /** Ticks "Add to cart" for the row at `index` and moves it to the cart. */
+  /** Ticks "Add to cart" for the row at `index`, moves it to the cart and waits for the cart page that follows. */
   async moveToCart(index = 0) {
     await this.addToCartCheckboxes.nth(index).check();
     await this.addToCartButton.click();
+    await this.page.waitForURL(/\/cart/, { waitUntil: 'domcontentloaded' });
   }
 
   async removeItem(index = 0) {

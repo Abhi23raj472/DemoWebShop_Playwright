@@ -35,7 +35,7 @@ test.describe('Navigation - Positive', () => {
     { text: 'About us', path: '/about-us', heading: 'About Us' },
   ];
   footerLinks.forEach((link, i) => {
-    test(`TC_NAV_${9 + i}: footer link "${link.text}" opens its page`, async ({ page, homePage }) => {
+    test(`TC_NAV_${String(9 + i).padStart(2, '0')}: footer link "${link.text}" opens its page`, async ({ page, homePage }) => {
       await homePage.footer.getByRole('link', { name: link.text, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${link.path}$`));
       await expect(page.locator('.page-title h1')).toHaveText(link.heading);
