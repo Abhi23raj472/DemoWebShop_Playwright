@@ -14,7 +14,7 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 - TypeScript (strict) and JavaScript (type-checked via JSDoc + `// @ts-check`)
 - Page Object Model with custom Playwright fixtures
 - [Allure Report](https://allurereport.org) – second report with steps, screenshots and trends
-- GitHub Actions – daily scheduled runs (smoke at 08:00 and 20:00 IST, full suite at 13:00 and 16:00 IST) plus CI on push / pull request, with a result email
+- GitHub Actions – full suite daily at 07:00 IST plus CI on push / pull request, with a result email
 - Jenkins – the same pipeline for on-demand runs on your own machine, with a result email
 - Browsers: Chromium, Firefox, WebKit
 
@@ -319,16 +319,9 @@ Step titles never include the values typed (such as passwords), but screenshots,
 
 The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs on GitHub's servers, so no PC needs to be on:
 
-- **Daily on a schedule** (India time; cron in UTC):
+- **Daily at 07:00 IST** (`30 1 * * *` in UTC): the full suite in all three browsers; the email arrives about 30 minutes later.
 
-  | Time (IST) | Cron (UTC) | Suite | Email after about |
-  |---|---|---|---|
-  | 08:00 | `30 2 * * *` | Smoke (`@smoke`) | 10 min |
-  | 13:00 | `30 7 * * *` | Full suite | 30 min |
-  | 16:00 | `30 10 * * *` | Full suite | 30 min |
-  | 20:00 | `30 14 * * *` | Smoke (`@smoke`) | 10 min |
-
-  GitHub can start scheduled runs a few minutes late when it is busy, and it pauses schedules in a repository with no activity for 60 days (re-enable them in the Actions tab).
+  GitHub can start scheduled runs late when it is busy, and it pauses schedules in a repository with no activity for 60 days (re-enable them in the Actions tab).
 - On every **push** and **pull request** to `main` (full suite)
 - **Manually** from the Actions tab → *Playwright Tests* → *Run workflow* (choose `all` or `smoke`)
 

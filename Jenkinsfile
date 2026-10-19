@@ -20,7 +20,7 @@ pipeline {
     choice(name: 'SCREENSHOTS', choices: ['step', 'failure'], description: 'step: screenshot after every step; failure: only when a test fails (faster)')
   }
 
-  // No schedule here: the daily runs (08:00, 13:00, 16:00, 20:00 IST) happen in GitHub Actions, which
+  // No schedule here: the daily run (07:00 IST) happens in GitHub Actions, which
   // works while this PC is off. Use Build with Parameters to run on demand.
 
   options {

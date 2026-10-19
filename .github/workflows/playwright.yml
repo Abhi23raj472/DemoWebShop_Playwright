@@ -1,10 +1,10 @@
 name: Playwright Tests
 
 on:
-  # Daily in India time (IST = UTC+5:30; cron is in UTC). GitHub may start scheduled runs a few minutes late.
+  # Daily at 07:00 India time (IST = UTC+5:30; cron is in UTC): the full suite.
+  # GitHub may start scheduled runs late when it is busy.
   schedule:
-    - cron: '30 2,14 * * *'   # 08:00 and 20:00 IST: smoke tests
-    - cron: '30 7,10 * * *'   # 13:00 and 16:00 IST: full suite
+    - cron: '30 1 * * *'
   push:
     branches: [main]
   pull_request:
@@ -23,8 +23,8 @@ permissions:
   contents: read
 
 env:
-  # smoke: tests tagged @smoke; all: the full suite. Push and pull request runs use the full suite.
-  SUITE: ${{ github.event.schedule == '30 2,14 * * *' && 'smoke' || github.event.inputs.suite || 'all' }}
+  # all: the full suite (scheduled, push and pull request runs); smoke: tests tagged @smoke (manual runs only).
+  SUITE: ${{ github.event.inputs.suite || 'all' }}
 
 jobs:
   test:
