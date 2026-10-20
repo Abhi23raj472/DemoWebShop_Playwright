@@ -6,7 +6,7 @@ End-to-end UI test automation for [Tricentis Demo Web Shop](https://demowebshop.
 
 The `typescript/` and `javascript/` folders are two parallel implementations of the same framework and test cases, so either language can be used as a reference.
 
-**Contents:** [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Test cases](#test-cases) · [Getting started](#getting-started) · [Running tests](#running-tests) · [Configuration](#configuration) · [Reports](#reports) · [CI/CD](#cicd) · [Jenkins](#jenkins) · [Adding a new test](#adding-a-new-test) · [Security](#security)
+**Contents:** [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Test cases](#test-cases) · [Getting started](#getting-started) · [Running tests](#running-tests) · [Configuration](#configuration) · [Reports](#reports) · [CI/CD](#cicd) · [Jenkins](#jenkins) · [Adding a new test](#adding-a-new-test) · [Troubleshooting](#troubleshooting) · [Security](#security)
 
 ## Tech stack
 
@@ -21,7 +21,7 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 ## Project structure
 
 ```
-├── .github/workflows/playwright.yml   # GitHub Actions pipeline (push, PR, manual run)
+├── .github/workflows/playwright.yml   # GitHub Actions pipeline (daily schedule, push, PR, manual run, email)
 ├── Jenkinsfile                        # Jenkins pipeline (on-demand runs, result email)
 ├── scripts/build-email.mjs            # Builds the result email (GitHub Actions and Jenkins) from reports/junit.xml
 ├── setup/
@@ -274,13 +274,15 @@ npx playwright test --debug                                                # ste
 
 Key settings in [playwright.config.ts](playwright.config.ts):
 
-| Setting | Local | CI / Jenkins | Why |
-|---|---|---|---|
-| Workers | 2 (Firefox: 1) | 1 per job | The demo site is slow; too many parallel browsers cause timeouts |
-| Retries | 1 | 2 | Absorb occasional slowness of the public demo site |
-| Test timeout | 90 s | 90 s | |
-| Screenshots | on failure (`SCREENSHOTS=failure`) | every step (`SCREENSHOTS=step`) | See [Reports](#reports) |
-| Trace / video | on first retry | on first retry | |
+| Setting | Local | GitHub Actions | Jenkins | Why |
+|---|---|---|---|---|
+| Workers (tests at a time) | 2 (Firefox: 1) | 2 per browser job (Firefox: 1) | 1 | The demo site is slow, and several Firefox instances stall; Jenkins runs on an 8 GB laptop |
+| Retries | 1 | 2 | 2 | Absorb occasional slowness of the public demo site |
+| Timeouts | test 90 s · action 45 s · navigation 60 s · assertion 15 s | same | same | The demo site can be slow to respond |
+| Screenshots | on failure (`SCREENSHOTS=failure`) | every step (`SCREENSHOTS=step`) | every step (`SCREENSHOTS=step`) | See [Reports](#reports) |
+| Trace / video | on first retry | on first retry | on first retry | |
+
+Pages wait for `domcontentloaded`, not the full `load` event, because slow third-party resources on the site can stall it.
 
 `BASE_URL` and `SCREENSHOTS` can be overridden through the environment or `.env`.
 
@@ -292,6 +294,8 @@ Every run produces two reports. Both show each test's steps with their screensho
 |---|---|---|
 | **Playwright HTML** | Debugging a single test: steps, screenshots, errors, traces and videos | `npm run report` |
 | **Allure** | An overview: pass rate, tests grouped by browser → spec file → positive/negative, history and trends across runs | `npm run report:allure` |
+
+Allure trends build up locally and on Jenkins, where `allure-history.jsonl` is kept between runs. Each GitHub Actions report starts fresh, so it shows only that run.
 
 ### Steps and screenshots
 
@@ -325,7 +329,7 @@ The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.
 - On every **push** and **pull request** to `main` (full suite)
 - **Manually** from the Actions tab → *Playwright Tests* → *Run workflow* (choose `all` or `smoke`)
 
-Chromium, Firefox and WebKit run as three parallel jobs, with screenshots at every step. Each job type-checks the code and runs the tests. A final **Merge reports & email** job then combines the three browsers into one Playwright HTML report and one Allure report, and emails the result.
+Chromium, Firefox and WebKit run as three parallel jobs on `ubuntu-24.04` (pinned, so a new Ubuntu release can't break the browser install), with screenshots at every step. Each job type-checks the code and runs the tests. A final **Merge reports & email** job waits for all three, combines them into one Playwright HTML report and one Allure report, and sends **one** email. A full run takes about 30 minutes.
 
 Artifacts on each run's summary page (kept for 7 days):
 
@@ -335,7 +339,7 @@ Artifacts on each run's summary page (kept for 7 days):
 
 ### Result email (GitHub Actions)
 
-Every run emails a summary: totals for all three browsers, failed tests with their errors, and a link to the run, where the reports can be downloaded. The Allure report is attached when it is under 18 MB (usually smoke runs); otherwise it is linked.
+Every run emails a summary once all tests have finished: totals for all three browsers, failed tests with their errors, and a link to the run, where the reports can be downloaded. The subject looks like *[GitHub Actions] Demo Web Shop All tests #20: PASSED (242/242 passed)*. The Allure report is attached when it is under 18 MB (a manual `smoke` run); a full run's report (about 85 MB) is linked instead.
 
 The email is sent only when these repository secrets exist (**Settings → Secrets and variables → Actions → New repository secret**):
 
@@ -345,7 +349,7 @@ The email is sent only when these repository secrets exist (**Settings → Secre
 | `MAIL_PASSWORD` | A Gmail **App Password** for that address (not the normal Gmail password) |
 | `MAIL_TO` | Recipient address(es), comma-separated |
 
-Secrets are encrypted, hidden in logs, and passed only to the send step. Pull requests from forks get no secrets, so they send no email.
+Add them under **Actions**: the Codespaces and Dependabot secret pages look the same, but the workflow can't read those. If a secret is missing, the run shows a *Result email not sent* warning naming it (never its value). Secrets are encrypted, hidden in logs, and passed only to the send step. Pull requests from forks get no secrets, so they send no email.
 
 ## Jenkins
 
@@ -403,6 +407,16 @@ test('TC_XXX_01: description @smoke', async ({ homePage }) => {
   await expect(homePage.logo).toBeVisible();
 });
 ```
+
+## Troubleshooting
+
+| Problem | Cause and fix |
+|---|---|
+| No result email from GitHub Actions | Open the run in the Actions tab. A yellow *Result email not sent* warning names a missing secret: add it under **Settings → Secrets and variables → Actions**. Also check the Spam folder. |
+| *Send email* fails with `535 … Username and Password not accepted` | `MAIL_PASSWORD` is not a valid Gmail App Password (often the normal Gmail password, or a partly copied code). Create a new App Password at https://myaccount.google.com/apppasswords and paste it into `MAIL_PASSWORD`. |
+| The daily run started late or not at all | GitHub's free scheduler is best effort: runs can be delayed or skipped when GitHub is busy. Start one by hand with *Run workflow*. |
+| The schedule stopped completely | GitHub pauses schedules after 60 days without commits; re-enable the workflow in the Actions tab. |
+| Tests time out locally | The demo site is slow at times. Run one browser (`npm run test:chromium`) and close other heavy apps. |
 
 ## Security
 
