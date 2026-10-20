@@ -14,7 +14,7 @@ The `typescript/` and `javascript/` folders are two parallel implementations of 
 - TypeScript (strict) and JavaScript (type-checked via JSDoc + `// @ts-check`)
 - Page Object Model with custom Playwright fixtures
 - [Allure Report](https://allurereport.org) – second report with steps, screenshots and trends
-- GitHub Actions – full suite daily at 07:00 IST plus CI on push / pull request, with a result email
+- GitHub Actions – full suite daily at 13:17 IST plus CI on push / pull request, with a result email
 - Jenkins – the same pipeline for on-demand runs on your own machine, with a result email
 - Browsers: Chromium, Firefox, WebKit
 
@@ -319,7 +319,7 @@ Step titles never include the values typed (such as passwords), but screenshots,
 
 The workflow in [.github/workflows/playwright.yml](.github/workflows/playwright.yml) runs on GitHub's servers, so no PC needs to be on:
 
-- **Daily at 07:00 IST** (`30 1 * * *` in UTC): the full suite in all three browsers; the email arrives about 30 minutes later.
+- **Daily at 13:17 IST** (`47 7 * * *` in UTC): the full suite in all three browsers; the email arrives about 30 minutes later. Midday IST and an odd minute are used because GitHub most often delays or skips scheduled runs in the early-morning IST hours and at the top of the hour.
 
   GitHub can start scheduled runs late when it is busy, and it pauses schedules in a repository with no activity for 60 days (re-enable them in the Actions tab).
 - On every **push** and **pull request** to `main` (full suite)

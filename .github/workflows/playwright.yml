@@ -1,10 +1,11 @@
 name: Playwright Tests
 
 on:
-  # Daily at 07:00 India time (IST = UTC+5:30; cron is in UTC): the full suite.
-  # GitHub may start scheduled runs late when it is busy.
+  # Daily at 13:17 India time (IST = UTC+5:30; cron is in UTC): the full suite.
+  # Midday IST and an odd minute: GitHub delays or drops scheduled runs when busy, most often in the
+  # early-morning IST hours and at the top of the hour.
   schedule:
-    - cron: '30 1 * * *'
+    - cron: '47 7 * * *'
   push:
     branches: [main]
   pull_request:
